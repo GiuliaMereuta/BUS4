@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Registration{% endblock %}
+
+{% block content %}
+    <h1>Create Your Account</h1>
+    <p>Please enter your information below and create a password to register</p>
+    <form action="" method="POST" novalidate>
+        {{ form.hidden_tag() }}
+
+        <p>
+            {{ form.last_name.label }}<br>
+            {{ form.last_name }}<br>
+        </p>
+        <p>
+            {{ form.first_name.label }}<br>
+            {{ form.first_name }}<br>
+        </p>
+        <p>
+            {{ form.email.label }}<br>
+            {{ form.email }}<br>
+        </p>
+        <p>
+            {{ form.password.label }}<br>
+            {{ form.password }}<br>
+        </p>
+        <p>
+            {{ form.role.label }}<br>
+            {{ form.role }}<br>
+        </p>
+        <p>{{ form.submit }}</p>
+    </form>
+
+    <p>
+        Already have a Crosscheck account?
+        <a href="{{ url_for('authenticate_user') }}">Log in</a>
+    </p>
+{% endblock %}

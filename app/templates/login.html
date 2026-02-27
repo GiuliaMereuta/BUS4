@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Login Page{% endblock %}
+
+{% block content %}
+    <h1>Welcome to Crosscheck</h1>
+    <p>Please enter your email address and password below to log in</p>
+    <form action="" method="POST" novalidate>
+        {{ form.hidden_tag() }}
+
+        <p>
+            {{ form.email.label }}<br>
+            {{ form.email }}<br>
+        </p>
+        <p>
+            {{ form.password.label }}<br>
+            {{ form.password }}<br>
+        </p>
+        <p>{{ form.submit }}</p>
+    </form>
+
+    <p>
+        New to Crosscheck?
+        <a href="{{ url_for('register_user') }}">Register here</a>
+    </p>
+{% endblock %}
