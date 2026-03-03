@@ -19,6 +19,10 @@
     </div>
 
     <div class="form-item">
+        {{ form.date_of_birth(class="form-style", placeholder="Date of Birth") }}
+    </div>
+
+    <div class="form-item">
         {{ form.email(class="form-style", placeholder="Email") }}
     </div>
 
@@ -36,6 +40,6 @@
 </form>
 
 <p style="color:white; margin-top:15px; text-align:center;">
-    Already have an account? <a href="{{ url_for('authenticate_user') }}">Login</a>
+    Already have an account? <a href="{{ url_for('login') }}">Login</a>
 </p>
 {% endblock %}

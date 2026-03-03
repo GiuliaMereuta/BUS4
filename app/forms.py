@@ -4,11 +4,13 @@ from wtforms.fields.datetime import DateField
 from wtforms.validators import DataRequired, Optional, Length, NumberRange
 from datetime import date
 
+#----------------------------------------------------------------------#
 
-# register
 class RegisterForm(FlaskForm):
     first_name = StringField("First name(s):", validators=[DataRequired()])
     last_name = StringField("Last name:", validators=[DataRequired()])
+    date_of_birth = DateField("Date of birth:", format="%d-%m-%Y", default=date.today, validators=[DataRequired()])
+
     email = StringField("Email:", validators=[DataRequired(), Length(min=8)])
     password = PasswordField("Password:", validators=[DataRequired(), Length(min=8)])
     role = SelectField("What's your role?", choices=[
@@ -18,17 +20,18 @@ class RegisterForm(FlaskForm):
         validators=[DataRequired()])
     submit = SubmitField("Register")
 
+#----------------------------------------------------------------------#
 
-# login
 class LoginForm(FlaskForm):
     email = StringField("Email:", validators=[DataRequired()])
     password = PasswordField("Password:", validators=[DataRequired()])
     submit = SubmitField("Login")
 
+#----------------------------------------------------------------------#
 
 # initial health log, to be displayed once after registration only
-class FirstHealthForm(FlaskForm):
-    # HEALTH CONDITIONS
+class PatientProfile(FlaskForm):
+    # health conditions
     hypertension = BooleanField('Hypertension')
     diabetes = BooleanField('Diabetes')
     heart_disease = BooleanField('Heart Disease')
@@ -39,15 +42,14 @@ class FirstHealthForm(FlaskForm):
     dementia = BooleanField('Dementia / Alzheimer’s')
     vision_problems = BooleanField('Vision Problems')
     hearing_loss = BooleanField('Hearing Loss')
-    date = DateField("Date:", format="%d-%m-%Y", default=date.today, validators=[DataRequired()])
-
-    # MEDICATIONS
-    medication_name = StringField("Medication Name", validators=[DataRequired(), Length(max=100)])
-    dosage = StringField("Dosage (e.g., 10mg)", validators=[DataRequired()])
-    notes = TextAreaField("Notes", validators=[Optional(), Length(max=300)])
-
-    # LIFESTYLE & ALLERGIES
     allergies = TextAreaField('Allergies / Reactions', validators=[Optional()])
+
+    # medication
+    medication_name = StringField("Medication name:", validators=[Optional(), Length(max=100)])
+    dosage = StringField("Dosage (e.g., 10mg)", validators=[Optional()])
+    notes = TextAreaField("Notes:", validators=[Optional(), Length(max=300)])
+
+    # lifestyle
     smoking_status = SelectField('Smoking Status',
                                  choices=[('never', 'Never'), ('former', 'Former'), ('current', 'Current')],
                                  validators=[Optional()])
@@ -59,9 +61,10 @@ class FirstHealthForm(FlaskForm):
                                     validators=[Optional()])
     submit = SubmitField('Submit Health Record')
 
+#----------------------------------------------------------------------#
 
 # form that can be completed whenever patient needs, will be a <a href="">
-class RecurrentHealthForm(FlaskForm):
+class HealthLog(FlaskForm):
     temperature = FloatField(
         "Temperature (°C)",
         validators=[
@@ -94,3 +97,7 @@ class RecurrentHealthForm(FlaskForm):
         validators=[Optional(), Length(max=500)],
         render_kw={"placeholder": "Anything else you'd like to record? (e.g. fall/injury)"})
     submit = SubmitField("Save Health Record")
+
+# ----------------------------------------------------------------------#
+
+# CHECK UP FORM, copy paste from thomas's fork
