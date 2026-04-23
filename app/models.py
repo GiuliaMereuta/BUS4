@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey
 from datetime import date, datetime, timezone
+import secrets
 
 #----------------------------------------------------------------------#
 
@@ -137,3 +138,30 @@ class RelativeApproval(db.Model):
 
     def __repr__(self):
         return f'<RelativeApproval Patient: {self.patient_id}, Relative: {self.relative_id}>'
+
+#----------------------------------------------------------------------#
+
+class RelativeInvite(db.Model):
+    __tablename__ = "relative_invites"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    patient_id: db.Column(
+        db.Integer,
+        db.ForeignKey("patient_profiles.user_id"),
+        nullable=False,
+        index=True)
+
+    token = db.Column(db.String(128), unique=True, nullable=False, index=True)
+
+    relative_email = db.Column(db.String(256), nullable=False, index=True)
+
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def generate_token(self):
+        self.token = secrets.token_urlsafe(32)
+
+    def is_valid(self):
+        return (not self.used) and (self.expires_at > datetime.utcnow())
