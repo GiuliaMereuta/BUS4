@@ -1,10 +1,11 @@
 from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlalchemy.orm as so
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey
 from datetime import date, datetime, timezone
+import secrets
 
 #----------------------------------------------------------------------#
 
@@ -74,11 +75,11 @@ class HealthLog(db.Model):
         sa.ForeignKey("patient_profiles.user_id"),
         nullable=False)
 
-    temperature: so.Mapped[float]
-    bp_systolic: so.Mapped[int]
-    bp_diastolic: so.Mapped[int]
-    mood: so.Mapped[str]
-    notes: so.Mapped[str]
+    temperature: so.Mapped[float] = so.mapped_column(sa.Float, nullable=False, index=True)
+    bp_systolic: so.Mapped[int] = so.mapped_column(sa.Integer, nullable=False, index=True)
+    bp_diastolic: so.Mapped[int] = so.mapped_column(sa.Integer, nullable=False, index=True)
+    mood: so.Mapped[str] = so.mapped_column(sa.String, nullable=False, index=True)
+    notes: so.Mapped[str] = so.mapped_column(sa.String(500))
     created_at: so.Mapped[datetime] = so.mapped_column(
         sa.DateTime,
         default=datetime.utcnow)
@@ -137,3 +138,29 @@ class RelativeApproval(db.Model):
 
     def __repr__(self):
         return f'<RelativeApproval Patient: {self.patient_id}, Relative: {self.relative_id}>'
+
+#----------------------------------------------------------------------#
+
+class RelativeInvite(db.Model):
+    __tablename__ = "relative_invites"
+
+    id: so.Mapped[int] = so.mapped_column(primary_key=True)
+
+    patient_id: so.Mapped[int] = so.mapped_column(
+        sa.ForeignKey("patient_profiles.user_id"),
+        nullable=False,
+        index=True)
+
+    token: so.Mapped[str] = so.mapped_column(sa.String(128), unique=True, nullable=False, index=True)
+
+    relative_email: so.Mapped[str] = so.mapped_column(sa.String(256), nullable=False, index=True)
+
+    expires_at: so.Mapped[datetime] = so.mapped_column(sa.DateTime, nullable=False)
+    used: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False, nullable=False)
+    created_at: so.Mapped[datetime] = so.mapped_column(sa.DateTime, default=datetime.utcnow)
+
+    def generate_token(self):
+        self.token = secrets.token_urlsafe(32)
+
+    def is_valid(self):
+        return (not self.used) and (self.expires_at > datetime.utcnow())

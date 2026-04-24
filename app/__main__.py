@@ -1,5 +1,5 @@
 from app import app, db
-from setup import reset_database
+from app.setup import reset_database
 
 if __name__ == '__main__':
     with app.app_context():

@@ -2,8 +2,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import render_template, redirect, url_for, flash, request, session
 from app import app
 from app import db
-from app.forms import RegisterForm, LoginForm, PatientProfile, HealthLog, CheckupForm, RelativeApprovalForm, CalendarForm
-from app.models import User, PatientProfile, HealthLog, Checkup, RelativeApproval
+from app.forms import RegisterForm, LoginForm, PatientProfileForm, HealthLogForm, CheckupForm, RelativeApprovalForm, CalendarForm
+from app.models import User, PatientProfile, HealthLog, Checkup, RelativeApproval, RelativeInvite
 from sqlalchemy.exc import IntegrityError
 from datetime import date, datetime, timedelta
 
@@ -15,7 +15,8 @@ def index():
     return render_template('index.html', session=session)
 
 #----------------------------------------------------------------------#
-
+# REGISTER, LOGIN, LOGOUT
+#----------------------------------------------------------------------#
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
@@ -96,6 +97,8 @@ def logout_user():
     return redirect(url_for('login'))
 
 #----------------------------------------------------------------------#
+# ALLOW GP AND PATIENT TO CREATE, UPDATE, READ, AND DELETE HEALTH RECORDS
+#----------------------------------------------------------------------#
 
 @app.route('/patient/<int:patient_id>', methods=['GET', 'POST'])
 def patient_profile(patient_id):
@@ -131,9 +134,8 @@ def patient_profile(patient_id):
 
 #----------------------------------------------------------------------#
 
-# display health data
-@app.route('/health', methods=['GET'])
-def get_health_data():
+@app.route('/health_log', methods=['GET', 'POST'])
+def health_log():
     if "user_id" not in session:
         flash("Please log in first.")
         return redirect(url_for("login"))
@@ -145,22 +147,69 @@ def get_health_data():
         flash("Patient profile not found.")
         return redirect(url_for("index"))
 
-    # Get all health logs (latest first)
+    form = HealthLogForm()
+
+    if form.validate_on_submit():
+        health_log = HealthLog(
+            patient_id=profile.user_id,
+            temperature=form.temperature.data,
+            bp_systolic=form.bp_systolic.data,
+            bp_diastolic=form.bp_diastolic.data,
+            mood=form.mood.data,
+            notes=form.notes.data
+        )
+        db.session.add(health_log)
+        db.session.commit()
+        flash('Your health update has been successfully logged!')
+        return redirect(url_for('health_log'))
     logs = HealthLog.query.filter_by(patient_id=profile.id)\
-                          .order_by(HealthLog.created_at.desc())\
-                          .all()
+           .order_by(HealthLog.created_at.desc()).all()
+    return render_template('health_logs.html', form=form, logs=logs, profile=profile)
 
-    return render_template("health_logs.html", logs=logs)
-
-#----------------------------------------------------------------------#
-# update health data
-@app.route('/health/update/<int:log_id>', methods=['GET', 'POST'])
-def update_health_data(log_id=None):
+# display health data
+@app.route('/search_healthlog/<int:patient_id>', methods=['GET', 'POST'])
+def get_health_log(patient_id):
     if "user_id" not in session:
         flash("Please log in first.")
         return redirect(url_for("login"))
 
-    form = HealthLog()
+    form = CalendarForm()
+
+    start = datetime.combine(date.today() - timedelta(days=7), datetime.min.time())
+    end = datetime.combine(date.today(), datetime.max.time())
+
+    if form.validate_on_submit():
+        start = datetime.combine(form.start_date.data, datetime.min.time())
+        end = datetime.combine(form.end_date.data, datetime.max.time())
+        flash('Report successfully generated!')
+
+    healthlog = (
+        db.session.query(HealthLog)
+        .join(PatientProfile, PatientProfile.user_id == HealthLog.patient_id)
+        .filter(HealthLog.patient_id == patient_id)
+        .filter(HealthLog.created_at >= start)
+        .filter(HealthLog.created_at <= end)
+        .order_by(HealthLog.created_at.desc())
+        .all()
+    )
+
+    # Get patient profile
+    profile = PatientProfile.query.filter_by(user_id=session["user_id"]).first()
+
+    if not profile:
+        flash("Patient profile not found.")
+        return redirect(url_for("index"))
+
+    return render_template("view_healthlog.html", form=form, healthlog=healthlog, patient=profile,
+                           patient_id=patient_id)
+
+#----------------------------------------------------------------------#
+# update health data
+@app.route('/health/update/<int:log_id>', methods=['GET', 'POST'])
+def update_health_data(log_id):
+    if "user_id" not in session:
+        flash("Please log in first.")
+        return redirect(url_for("login"))
 
     profile = PatientProfile.query.filter_by(user_id=session["user_id"]).first()
 
@@ -168,47 +217,24 @@ def update_health_data(log_id=None):
         flash("Patient profile not found.")
         return redirect(url_for("index"))
 
-    log = None
-
-    # If editing existing log
-    if log_id:
-        log = HealthLog.query.filter_by(id=log_id, patient_id=profile.id).first()
-        if not log:
-            flash("Health log not found.")
-            return redirect(url_for("get_health_data"))
-
-        if request.method == "GET":
-            form = HealthLog(obj=log)
+    health_log = HealthLog.query.get_or_404(log_id)
+    form = HealthLogForm(obj=health_log)
 
     if form.validate_on_submit():
-        # CREATE
-        if not log:
-            log = HealthLog(
-                patient_id=profile.id,
-                temperature=form.temperature.data,
-                bp_systolic=form.bp_systolic.data,
-                bp_diastolic=form.bp_diastolic.data,
-                mood=form.mood.data,
-                notes=form.notes.data
-            )
-            db.session.add(log)
-
-        # UPDATE
-        else:
-            log.temperature = form.temperature.data
-            log.bp_systolic = form.bp_systolic.data
-            log.bp_diastolic = form.bp_diastolic.data
-            log.mood = form.mood.data
-            log.notes = form.notes.data
-
+        health_log.temperature = form.temperature.data
+        health_log.bp_systolic = form.bp_systolic.data
+        health_log.bp_diastolic = form.bp_diastolic.data
+        health_log.mood = form.mood.data
+        health_log.notes = form.notes.data
         db.session.commit()
-        flash("Health data saved successfully!")
-        return redirect(url_for("get_health_data"))
+        flash('Your health log has been updated successfully!')
+        return redirect(url_for('get_health_log', patient_id=profile.user_id))
+    return render_template('updateHealth.html', form=form, profile=profile)
 
-    return render_template("health_form.html", form=form, log=log)
 #----------------------------------------------------------------------#
+
 # delete health data, only on optional fields
-@app.route('/health/delete/<int:log_id>', methods=['POST'])
+@app.route('/health/delete/<int:log_id>', methods=['GET','POST'])
 def delete_health_data(log_id):
     if "user_id" not in session:
         flash("Please log in first.")
@@ -220,22 +246,15 @@ def delete_health_data(log_id):
         flash("Patient profile not found.")
         return redirect(url_for("index"))
 
-    log = HealthLog.query.filter_by(id=log_id, patient_id=profile.id).first()
-
-    if not log:
-        flash("Health log not found.")
-        return redirect(url_for("get_health_data"))
-
-    db.session.delete(log)
+    health_log = HealthLog.query.get_or_404(log_id)
+    db.session.delete(health_log)
     db.session.commit()
+    flash('Your health log has been deleted successfully.')
+    return redirect(url_for("get_health_log", patient_id=profile.user_id))
 
-    flash("Health log deleted.")
-    return redirect(url_for("get_health_data"))
 #----------------------------------------------------------------------#
-
-# send code to relative to verify that they can access patient information
-def verify_auth_code():
-    pass
+# ALLOW GP TO CREATE, UPDATE, AND DELETE CHECK-UPS
+#----------------------------------------------------------------------#
 
 @app.route('/check_up', methods=['GET', 'POST'])
 def checkup():
@@ -256,6 +275,8 @@ def checkup():
     checkups = Checkup.query.all()
     return render_template("checkups.html", form=form, checkups=checkups)
 
+#----------------------------------------------------------------------#
+
 @app.route('/update_check_up/<int:checkup_id>', methods=['GET', 'POST'])
 def update_checkup(checkup_id):
     checkup_log = Checkup.query.get_or_404(checkup_id)
@@ -273,6 +294,8 @@ def update_checkup(checkup_id):
         return redirect(url_for('checkup'))
     return render_template('checkups_updating.html', form=form)
 
+#----------------------------------------------------------------------#
+
 @app.route('/delete_check_up/<int:checkup_id>', methods=['GET', 'POST'])
 def delete_checkup(checkup_id):
     checkup_log = Checkup.query.get_or_404(checkup_id)
@@ -282,7 +305,7 @@ def delete_checkup(checkup_id):
     return redirect(url_for('checkup'))
 
 #----------------------------------------------------------------------#
-# RELATIVE APPROVAL MANAGEMENT (Story S3)
+# ALLOW PATIENT TO MANAGE RELATIVE ACCESS
 #----------------------------------------------------------------------#
 
 @app.route('/manage_relatives', methods=['GET', 'POST'])
@@ -379,16 +402,100 @@ def revoke_relative(approval_id):
         flash("An error occurred while revoking the approval.")
         return redirect(url_for('manage_relatives'))
 
-'''
-Let Relatives View Patient Logs - Story S6:
-'''
+#----------------------------------------------------------------------#
+# ALLOW RELATIVE TO VIEW PATIENT RECORD
+#----------------------------------------------------------------------#
+
+# create invite – patient side
+def create_relative_invite(patient_id, relative_email, hours_valid=24):
+    invite = RelativeInvite(
+        patient_id=patient_id,
+        relative_email=relative_email.lower(),
+        expires_at=datetime.utcnow() + timedelta(hours=hours_valid)
+    )
+    invite.generate_token()
+
+    db.session.add(invite)
+    db.session.commit()
+
+    return invite.token
+
+#----------------------------------------------------------------------#
+
+# approve from token – relative side
+def approve_relative_from_token(token, relative_user_id):
+    invite = RelativeInvite.query.filter_by(token=token).first()
+
+    if not invite or not invite.is_valid():
+        return False, "Invalid or expired code"
+
+    relative_user = User.query.get(relative_user_id)
+
+    if not relative_user or relative_user.email.lower() != invite.relative_email:
+        return False, "This code is not assigned to your account"
+
+    existing = RelativeApproval.query.filter_by(
+        patient_id=invite.patient_id,
+        relative_id=relative_user_id
+    ).first()
+
+    if existing:
+        return False, "Already approved"
+
+    approval = RelativeApproval.query.filter_by(
+        patient_id=invite.patient_id,
+        relative_id=relative_user_id
+    )
+
+    if not approval:
+        flash("Unauthorised access.")
+        return redirect(url_for("index"))
+
+    invite.used = True
+
+    db.session.add(approval)
+    db.session.commit()
+
+    return True, "Access granted"
+
+#----------------------------------------------------------------------#
+
+@app.route('/generate_relative_code', methods=['POST'])
+def generate_relative_code():
+    if 'user_id' not in session or session.get('user_role') != 'patient':
+        return redirect(url_for('login'))
+
+    patient_profile = PatientProfile.query.filter_by(user_id=session['user_id']).first()
+
+    relative_email = request.form.get('relative_email')
+
+    token = create_relative_invite(patient_profile.user_id, relative_email)
+
+    flash(f"Access code for {relative_email}: {token}")
+    return redirect(url_for('manage_relatives'))
+
+#----------------------------------------------------------------------#
+
+@app.route('/use_relative_code', methods=['POST'])
+def use_relative_code():
+    if 'user_id' not in session or session.get('user_role') != 'relative':
+        return redirect(url_for('login'))
+
+    token = request.form.get('code')
+
+    success, message = approve_relative_from_token(token, session['user_id'])
+
+    flash(message)
+    return redirect(url_for('index'))
+
+#----------------------------------------------------------------------#
 
 @app.route('/select_patient')
 def select_patient():
-    '''
+    """
     Takes relatives to a menu where they can choose whose health records they'd like to check.
     If only one patient has approved, this will immediately redirect to their information page.
-    '''
+    """
     # Basic security gates - only the 'relative' user type can access this page:
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -428,14 +535,15 @@ def select_patient():
     # if two or more patients have approved the relative, the html page will render.
     return render_template('select_patient.html', approval_list=approval_list)
 
+#----------------------------------------------------------------------#
 
 @app.route('/patient_information/<int:patient_id>')
 def patient_info(patient_id):
-    '''
+    """
     Displays a menu where you can choose to read the patient's profile,
     look through their history of health reports,
     or read their checkup history.
-    '''
+    """
     # Basic security gates - only the 'relative' user type can access this page:
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -466,11 +574,29 @@ def patient_info(patient_id):
     # you can access each part of the patient's record via the following html page:
     return render_template('patient_info.html', patient_dict=patient_dict, only_approval=only_approval)
 
+#----------------------------------------------------------------------#
+
 @app.route('/view_profile/<int:patient_id>')
 def view_profile(patient_id):
-    '''
+    """
     Allows relative to view basic information provided by the patient.
-    '''
+    """
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    if session.get('user_role') != 'relative':
+        flash('Unauthorized.')
+        return redirect(url_for('index'))
+
+    approval = RelativeApproval.query.filter_by(
+        patient_id=patient_id,
+        relative_id=session['user_id']
+    ).first()
+
+    if not approval:
+        flash("Unauthorized access.")
+        return redirect(url_for('index'))
+
     # query patient profile to get all rows of information about the patient:
     patient = (
         db.session.query(PatientProfile)
@@ -480,12 +606,29 @@ def view_profile(patient_id):
     )
     return render_template('view_profile.html', patient=patient)
 
+#----------------------------------------------------------------------#
+
 @app.route('/view_healthlog/<int:patient_id>', methods=['GET', 'POST'])
 def view_healthlog(patient_id):
-    '''
+    """
     Allows relative to view all health logs made by the patient themselves.
     Functions as a calendar with a form that allows you to filter down to a specific date range.
-    '''
+    """
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    if session.get('user_role') != 'relative':
+        flash('Unauthorized.')
+        return redirect(url_for('index'))
+
+    approval = RelativeApproval.query.filter_by(
+        patient_id=patient_id,
+        relative_id=session['user_id']
+    ).first()
+
+    if not approval:
+        flash("Unauthorized access.")
+        return redirect(url_for('index'))
 
     # pull a date range from the form and use it to filter through health updates:
     form = CalendarForm()
@@ -507,7 +650,7 @@ def view_healthlog(patient_id):
         .filter(HealthLog.patient_id == patient_id)
         .filter(HealthLog.created_at >= start)
         .filter(HealthLog.created_at <= end)
-        .order_by(HealthLog.created_at)
+        .order_by(HealthLog.created_at.desc())
         .all()
     )
 
@@ -521,12 +664,29 @@ def view_healthlog(patient_id):
     return render_template('view_healthlog.html', form=form, healthlog=healthlog, patient=patient,
                            patient_id=patient_id)
 
+#----------------------------------------------------------------------#
+
 @app.route('/view_checkups/<int:patient_id>', methods=['GET', 'POST'])
 def view_checkups(patient_id):
-    '''
+    """
     Allows relative to view all health logs made by the patient themselves.
     Functions as a calendar with a form that allows you to filter down to a specific date range.
-    '''
+    """
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    if session.get('user_role') != 'relative':
+        flash('Unauthorized.')
+        return redirect(url_for('index'))
+
+    approval = RelativeApproval.query.filter_by(
+        patient_id=patient_id,
+        relative_id=session['user_id']
+    ).first()
+
+    if not approval:
+        flash("Unauthorized access.")
+        return redirect(url_for('index'))
 
     # pull a date range from the form and use it to filter through health updates:
     form = CalendarForm()
@@ -548,7 +708,7 @@ def view_checkups(patient_id):
         .filter(Checkup.patient_id == patient_id)
         .filter(Checkup.checkup_date >= start)
         .filter(Checkup.checkup_date <= end)
-        .order_by(Checkup.checkup_date)
+        .order_by(Checkup.checkup_date.desc())
         .all()
     )
 
@@ -561,3 +721,5 @@ def view_checkups(patient_id):
     )
     return render_template('view_checkups.html', form=form, checkups=checkups, patient=patient,
                            patient_id=patient_id)
+
+#----------------------------------------------------------------------#

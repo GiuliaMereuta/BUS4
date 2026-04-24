@@ -29,7 +29,7 @@ class LoginForm(FlaskForm):
 #----------------------------------------------------------------------#
 
 # initial health log, to be displayed once after registration only
-class PatientProfile(FlaskForm):
+class PatientProfileForm(FlaskForm):
     # health conditions
     hypertension = BooleanField('Hypertension')
     diabetes = BooleanField('Diabetes')
@@ -65,7 +65,7 @@ class PatientProfile(FlaskForm):
 #----------------------------------------------------------------------#
 
 # form that can be completed whenever patient needs, will be a <a href="">
-class HealthLog(FlaskForm):
+class HealthLogForm(FlaskForm):
     temperature = FloatField(
         "Temperature (°C)",
         validators=[
