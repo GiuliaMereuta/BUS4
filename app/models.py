@@ -75,11 +75,11 @@ class HealthLog(db.Model):
         sa.ForeignKey("patient_profiles.user_id"),
         nullable=False)
 
-    temperature: so.Mapped[float]
-    bp_systolic: so.Mapped[int]
-    bp_diastolic: so.Mapped[int]
-    mood: so.Mapped[str]
-    notes: so.Mapped[str]
+    temperature: so.Mapped[float] = so.mapped_column(sa.Float, nullable=False, index=True)
+    bp_systolic: so.Mapped[int] = so.mapped_column(sa.Integer, nullable=False, index=True)
+    bp_diastolic: so.Mapped[int] = so.mapped_column(sa.Integer, nullable=False, index=True)
+    mood: so.Mapped[str] = so.mapped_column(sa.String, nullable=False, index=True)
+    notes: so.Mapped[str] = so.mapped_column(sa.String(500))
     created_at: so.Mapped[datetime] = so.mapped_column(
         sa.DateTime,
         default=datetime.utcnow)
@@ -143,23 +143,21 @@ class RelativeApproval(db.Model):
 
 class RelativeInvite(db.Model):
     __tablename__ = "relative_invites"
-    __allow_unmapped__ = True
 
-    id = db.Column(db.Integer, primary_key=True)
+    id: so.Mapped[int] = so.mapped_column(primary_key=True)
 
-    patient_id = db.Column(
-        db.Integer,
-        db.ForeignKey("patient_profiles.user_id"),
+    patient_id: so.Mapped[int] = so.mapped_column(
+        sa.ForeignKey("patient_profiles.user_id"),
         nullable=False,
         index=True)
 
-    token = db.Column(db.String(128), unique=True, nullable=False, index=True)
+    token: so.Mapped[str] = so.mapped_column(sa.String(128), unique=True, nullable=False, index=True)
 
-    relative_email = db.Column(db.String(256), nullable=False, index=True)
+    relative_email: so.Mapped[str] = so.mapped_column(sa.String(256), nullable=False, index=True)
 
-    expires_at = db.Column(db.DateTime, nullable=False)
-    used = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at: so.Mapped[datetime] = so.mapped_column(sa.DateTime, nullable=False)
+    used: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False, nullable=False)
+    created_at: so.Mapped[datetime] = so.mapped_column(sa.DateTime, default=datetime.utcnow)
 
     def generate_token(self):
         self.token = secrets.token_urlsafe(32)

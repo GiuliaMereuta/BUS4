@@ -2,7 +2,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import render_template, redirect, url_for, flash, request, session
 from app import app
 from app import db
-from app.forms import RegisterForm, LoginForm, PatientProfile, HealthLogForm, CheckupForm, RelativeApprovalForm, CalendarForm
+from app.forms import RegisterForm, LoginForm, PatientProfileForm, HealthLogForm, CheckupForm, RelativeApprovalForm, CalendarForm
 from app.models import User, PatientProfile, HealthLog, Checkup, RelativeApproval, RelativeInvite
 from sqlalchemy.exc import IntegrityError
 from datetime import date, datetime, timedelta

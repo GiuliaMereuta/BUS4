@@ -29,7 +29,7 @@ class LoginForm(FlaskForm):
 #----------------------------------------------------------------------#
 
 # initial health log, to be displayed once after registration only
-class PatientProfile(FlaskForm):
+class PatientProfileForm(FlaskForm):
     # health conditions
     hypertension = BooleanField('Hypertension')
     diabetes = BooleanField('Diabetes')
