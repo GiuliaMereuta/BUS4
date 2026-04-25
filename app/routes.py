@@ -210,7 +210,7 @@ def health_log():
 
     if form.validate_on_submit():
         health_log = HealthLog(
-            patient_id=profile.user_id,
+            patient_id=profile.patient_id,
             temperature=form.temperature.data,
             bp_systolic=form.bp_systolic.data,
             bp_diastolic=form.bp_diastolic.data,
@@ -221,7 +221,7 @@ def health_log():
         db.session.commit()
         flash('Your health update has been successfully logged!')
         return redirect(url_for('health_log'))
-    logs = HealthLog.query.filter_by(patient_id=profile.id)\
+    logs = HealthLog.query.filter_by(patient_id=patient_id)\
            .order_by(HealthLog.created_at.desc()).all()
     return render_template('health_logs.html', form=form, logs=logs, profile=profile)
 
@@ -356,8 +356,10 @@ def checkup():
     form = CheckupForm()
     if form.validate_on_submit():
         checkup_log = Checkup(
+            patient_id=profile.user_id,
             patient_last_name=form.patient_last_name.data,
             patient_first_name=form.patient_first_name.data,
+            gp_id=session["user_id"],
             checkup_date=form.checkup_date.data,
             medication=form.medication.data,
             dosage=form.dosage.data,
@@ -482,7 +484,7 @@ def revoke_relative(approval_id):
 
     # Verify this approval belongs to the current patient
     patient_profile = PatientProfile.query.filter_by(user_id=session['user_id']).first()
-    if approval.patient_id != patient_profile.id:
+    if approval.patient_id != patient_profile.user_id:
         flash("You do not have permission to revoke this approval.")
         return redirect(url_for('manage_relatives'))
 
@@ -536,7 +538,7 @@ def approve_relative_from_token(token, relative_user_id):
     if existing:
         return False, "Already approved"
 
-    approval = RelativeApproval.query.filter_by(
+    approval = RelativeApproval(
         patient_id=invite.patient_id,
         relative_id=relative_user_id
     )

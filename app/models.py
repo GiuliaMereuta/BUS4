@@ -31,12 +31,8 @@ class User(db.Model):
 class PatientProfile(db.Model):
     __tablename__ = "patient_profiles"
 
-    # foreign key
-    id: so.Mapped[int] = so.mapped_column(primary_key=True)
-    user_id: so.Mapped[int] = so.mapped_column(
-        sa.ForeignKey("users.id"),
-        nullable=False,
-        unique=True)
+    # primary key
+    user_id = so.mapped_column(ForeignKey("users.id"), primary_key=True)
 
     first_name: so.Mapped[str] = so.mapped_column(nullable=False, index=True)
     last_name: so.Mapped[str] = so.mapped_column(nullable=False, index=True)
